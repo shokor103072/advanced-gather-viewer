@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced Gather Viewer &amp; Batch Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow:wght@300;400;500;600;700&display=swap" />
+  <script src="plotly.min.js"></script>
+  <link rel="stylesheet" href="advanced_gather_review.css" />
+</head>
+<body>
+  <div class="shell">
+
+    <header class="topbar">
+      <div>
+        <h1>Advanced Gather Viewer &amp; Batch Review</h1>
+        <p>Standalone viewer for SEG-Y/SGY batch browsing, manual event labeling, and export.</p>
+      </div>
+      <div class="top-actions">
+        <a class="ghost-btn" href="/">Open main workflow</a>
+      </div>
+    </header>
+
+    <div class="workspace">
+
+      <aside class="sidebar">
+
+        <section class="panel">
+          <h2>Batch file queue</h2>
+          <div class="btn-col">
+            <button class="btn btn-primary" id="choose-folder-btn" type="button">Choose folder</button>
+            <button class="btn btn-primary" id="choose-files-btn" type="button">Choose files</button>
+          </div>
+          <input id="folder-input" type="file" webkitdirectory directory multiple hidden />
+          <input id="files-input" type="file" accept=".sgy,.segy,.SGY,.SEGY" multiple hidden />
+          <p class="hint">Folder selection may look empty in some browsers. Choose the folder anyway and this page will load the SGY/SEG-Y files inside it.</p>
+          <div class="nav-row">
+            <button class="btn btn-primary" id="open-current-btn" type="button">Open current</button>
+            <button class="btn btn-secondary" id="prev-btn" type="button">◀ Prev</button>
+            <button class="btn btn-secondary" id="next-btn" type="button">Next ▶</button>
+          </div>
+          <label class="check"><input id="auto-next" type="checkbox" checked /> Auto next after labeling</label>
+          <div id="batch-status" class="status-box">No batch loaded.</div>
+          <div class="queue-head">
+            <span>Loaded queue preview</span>
+            <span id="queue-count">0</span>
+          </div>
+          <div id="queue-list" class="queue-list"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Current file label</h2>
+          <div id="current-file-box" class="status-box">No file selected.</div>
+          <div class="btn-col" style="margin-top:12px">
+            <button class="btn btn-success" id="mark-event-btn" type="button">Mark event</button>
+            <button class="btn btn-danger" id="mark-nonevent-btn" type="button">Mark non-event</button>
+            <button class="btn btn-secondary" id="clear-label-btn" type="button">Clear label</button>
+          </div>
+          <div class="stats-grid">
+            <div class="stat"><span>Total files</span><strong id="stat-total">0</strong></div>
+            <div class="stat"><span>Events</span><strong id="stat-event">0</strong></div>
+            <div class="stat"><span>Non-events</span><strong id="stat-nonevent">0</strong></div>
+            <div class="stat"><span>Labeled</span><strong id="stat-labeled">0</strong></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Export labels</h2>
+          <div class="btn-col">
+            <button class="btn btn-success" id="export-event-btn" type="button">Export events CSV</button>
+            <button class="btn btn-danger" id="export-nonevent-btn" type="button">Export non-events CSV</button>
+            <button class="btn btn-primary" id="export-all-btn" type="button">Export combined CSV</button>
+          </div>
+          <p class="hint">Exports contain filename, relative path, label, size, and review order.</p>
+        </section>
+
+      </aside>
+
+      <main class="main-pane">
+
+        <section class="meta-strip panel">
+          <div id="meta-strip-text">Load a batch and open a file to start.</div>
+          <div class="preset-row">
+            <button class="btn btn-secondary" id="preset-ref-btn" type="button">Reference view preset</button>
+          </div>
+        </section>
+
+        <section class="viewer-grid">
+
+          <section class="panel controls-panel">
+            <h2>Display settings</h2>
+            <div class="control-grid two-col">
+              <div class="field wide"><label>Display</label>
+                <select id="display-mode"><option>Image</option><option>Wiggle</option><option>Image + Wiggle</option></select>
+              </div>
+              <div class="field wide"><label>Color mode</label>
+                <select id="color-mode"><option>Grey scale</option><option>Color</option></select>
+              </div>
+              <div class="field"><label>Area fill</label>
+                <select id="area-fill"><option>Area +</option><option>Area -</option><option>None</option></select>
+              </div>
+              <div class="field"><label>Gain control</label>
+                <select id="gain-mode"><option>Norm</option><option>Agc</option><option>None</option></select>
+              </div>
+              <div class="field"><label>Start channel</label>
+                <input id="start-channel" type="number" min="0" value="0" />
+              </div>
+              <div class="field"><label>End channel</label>
+                <input id="end-channel" type="number" min="0" value="500" />
+              </div>
+              <div class="field"><label>Window start (ms)</label>
+                <input id="start-ms" type="number" min="0" step="1" value="0" />
+              </div>
+              <div class="field"><label>Window end (ms)</label>
+                <input id="end-ms" type="number" min="1" step="1" value="1200" />
+              </div>
+              <label class="check"><input id="time-lines" type="checkbox" checked /> Time lines</label>
+              <label class="check"><input id="trace-lines" type="checkbox" /> Trace lines</label>
+              <label class="check"><input id="inv-pol" type="checkbox" /> Inv Pol</label>
+              <label class="check"><input id="top-axis" type="checkbox" checked /> Top channel axis</label>
+              <label class="check wide"><input id="use-freq-filter" type="checkbox" /> Use Freq Filter</label>
+              <div class="field"><label>AGC (ms)</label>
+                <input id="agc-ms" type="number" min="1" step="1" value="250" />
+              </div>
+              <div class="field"><label>Low cut (Hz)</label>
+                <input id="low-cut" type="number" min="0" step="1" value="10" />
+              </div>
+              <div class="field"><label>High cut (Hz)</label>
+                <input id="high-cut" type="number" min="1" step="1" value="250" />
+              </div>
+            </div>
+            <div class="slider-group">
+              <label>Trace scale <span id="trace-scale-val">3.227</span></label>
+              <input id="trace-scale" type="range" min="0.5" max="10" step="0.001" value="3.227" />
+              <label>Time scale <span id="time-scale-val">1.051</span></label>
+              <input id="time-scale" type="range" min="0.5" max="3" step="0.001" value="1.051" />
+              <label>Color gain <span id="color-gain-val">1.000</span></label>
+              <input id="color-gain" type="range" min="0.2" max="6" step="0.001" value="1.000" />
+              <label>Wiggle gain <span id="wiggle-gain-val">0.073</span></label>
+              <input id="wiggle-gain" type="range" min="0.001" max="3" step="0.001" value="0.073" />
+              <label>Wiggle clip <span id="wiggle-clip-val">1.000</span></label>
+              <input id="wiggle-clip" type="range" min="0.1" max="5" step="0.001" value="1.000" />
+            </div>
+            <div class="btn-col">
+              <button class="btn btn-primary" id="render-btn" type="button">Render gather</button>
+              <button class="btn btn-secondary" id="reset-view-btn" type="button">Reset to reference preset</button>
+            </div>
+          </section>
+
+          <section class="panel plot-panel">
+            <div id="render-status" class="status-inline">No file opened yet.</div>
+            <div id="plot-wrap"><div id="plot-gather"></div></div>
+          </section>
+
+        </section>
+
+        <section class="panel reviewed-panel">
+          <h2>Reviewed / labeled files</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>#</th><th>File</th><th>Label</th><th>Relative path</th><th>Size (MB)</th></tr>
+              </thead>
+              <tbody id="labeled-tbody">
+                <tr><td colspan="5">No labeled files yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <footer class="credit-footer">
+      <span class="credit-dot">◆</span>
+      <span>Advanced Gather Viewer &amp; Batch Review</span>
+      <span class="credit-dot">·</span>
+      <span>Created by <span class="credit-name">Shokor A Rahaman</span></span>
+      <span class="credit-dot">◆</span>
+    </footer>
+
+  </div>
+  <script src="advanced_gather_review.js"></script>
+</body>
+</html>
